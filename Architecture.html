@@ -1,0 +1,1376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CyberJourney Tracker — Architecture Spec v0.1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:        #070a09;
+    --bg-1:      #0c1110;
+    --bg-2:      #121917;
+    --line:      #1c2622;
+    --line-2:    #283530;
+    --ink:       #d6e2dc;
+    --ink-dim:   #8a978f;
+    --ink-mute:  #5a6660;
+    --phos:      oklch(0.86 0.18 155);
+    --phos-dim:  oklch(0.72 0.14 155);
+    --mag:       oklch(0.72 0.16 340);
+    --amber:     oklch(0.82 0.14 80);
+    --danger:    oklch(0.70 0.20 25);
+    --radius:    4px;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Space Grotesk", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 64px 64px;
+    background-position: -1px -1px;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,0,0,0) 0%, var(--bg) 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .shell {
+    position: relative;
+    z-index: 1;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 56px 32px 120px;
+  }
+  @media (max-width: 720px) {
+    .shell { padding: 32px 18px 80px; }
+    body { background-size: 40px 40px; font-size: 14px; }
+  }
+
+  /* ---------- Header ---------- */
+  .meta-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .meta-bar .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--phos);
+    box-shadow: 0 0 8px var(--phos);
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .meta-bar span.kv b { color: var(--ink-dim); font-weight: 500; }
+
+  .hero {
+    padding: 56px 0 48px;
+    border-bottom: 1px solid var(--line);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--phos);
+    margin-bottom: 18px;
+  }
+  h1.title {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: clamp(36px, 6vw, 64px);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    margin: 0 0 18px;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  h1.title em {
+    font-style: normal;
+    color: var(--phos);
+  }
+  .lede {
+    font-size: clamp(15px, 1.4vw, 17px);
+    color: var(--ink-dim);
+    max-width: 64ch;
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  .stack-strip {
+    margin-top: 36px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .pill {
+    border: 1px solid var(--line-2);
+    color: var(--ink-dim);
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.01);
+  }
+  .pill.now { color: var(--phos); border-color: color-mix(in oklab, var(--phos) 30%, var(--line-2)); }
+  .pill.next { color: var(--mag); border-color: color-mix(in oklab, var(--mag) 30%, var(--line-2)); }
+
+  /* ---------- Sections ---------- */
+  section.block {
+    padding: 56px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .sec-head {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 32px;
+    align-items: baseline;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 720px) {
+    .sec-head { grid-template-columns: 1fr; gap: 6px; }
+  }
+  .sec-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.16em;
+    padding-top: 6px;
+  }
+  .sec-num b { color: var(--phos); font-weight: 500; }
+  h2.sec-title {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: clamp(22px, 2.6vw, 30px);
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    color: var(--ink);
+  }
+  .sec-sub {
+    color: var(--ink-dim);
+    max-width: 70ch;
+    margin: 0;
+    text-wrap: pretty;
+  }
+  .sec-body {
+    margin-left: 172px;
+  }
+  @media (max-width: 720px) {
+    .sec-body { margin-left: 0; }
+  }
+
+  /* ---------- Generic content ---------- */
+  h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin: 32px 0 12px;
+    font-weight: 500;
+  }
+  p { margin: 0 0 12px; color: var(--ink); }
+  p.muted { color: var(--ink-dim); }
+  code, .mono { font-family: var(--mono); }
+  .ink-dim { color: var(--ink-dim); }
+  .phos { color: var(--phos); }
+  .mag  { color: var(--mag); }
+  .amber { color: var(--amber); }
+
+  /* Inline code chips */
+  p code, li code, td code {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    color: var(--phos);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.86em;
+  }
+
+  /* ---------- Tree / file structure ---------- */
+  .tree {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--ink-dim);
+    overflow-x: auto;
+    position: relative;
+  }
+  .tree::before {
+    content: "src/";
+    position: absolute;
+    top: 8px; right: 12px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+  }
+  .tree .dir { color: var(--phos); }
+  .tree .file { color: var(--ink); }
+  .tree .note { color: var(--ink-mute); }
+  .tree .new { color: var(--mag); }
+
+  /* ---------- Grid + cards ---------- */
+  .grid {
+    display: grid;
+    gap: 14px;
+  }
+  .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 900px) { .grid.cols-4 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 720px) {
+    .grid.cols-2, .grid.cols-3, .grid.cols-4 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 18px 16px;
+    position: relative;
+  }
+  .card .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--phos);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card .tag .num {
+    color: var(--ink-mute);
+  }
+  .card h4 {
+    font-family: var(--sans);
+    font-weight: 600;
+    margin: 0 0 6px;
+    font-size: 16px;
+    letter-spacing: -0.005em;
+  }
+  .card p { font-size: 13.5px; color: var(--ink-dim); margin: 0; }
+  .card.alt .tag { color: var(--mag); }
+  .card.alt .tag .num { color: var(--ink-mute); }
+
+  /* ---------- Tables ---------- */
+  table.spec {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin: 8px 0 4px;
+  }
+  table.spec th, table.spec td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.spec th {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 500;
+    border-bottom: 1px solid var(--line-2);
+  }
+  table.spec td.k { font-family: var(--mono); color: var(--phos); white-space: nowrap; }
+  table.spec td.t { color: var(--ink-dim); }
+  table.spec tr:hover td { background: rgba(255,255,255,0.012); }
+
+  /* ---------- Token swatches ---------- */
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+  }
+  @media (max-width: 900px) { .swatches { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 480px) { .swatches { grid-template-columns: repeat(2, 1fr); } }
+  .sw {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px;
+    background: var(--bg-1);
+  }
+  .sw .chip {
+    height: 56px;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    margin-bottom: 10px;
+  }
+  .sw .name { font-family: var(--mono); font-size: 11px; color: var(--ink); }
+  .sw .val  { font-family: var(--mono); font-size: 10.5px; color: var(--ink-mute); margin-top: 2px; }
+
+  /* ---------- Type scale ---------- */
+  .type-row {
+    display: grid;
+    grid-template-columns: 100px 80px 100px 1fr;
+    gap: 14px;
+    align-items: baseline;
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row .label { font-family: var(--mono); font-size: 11px; color: var(--phos); letter-spacing: 0.1em; text-transform: uppercase; }
+  .type-row .size  { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
+  .type-row .use   { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
+  .type-row .demo  { color: var(--ink); }
+  @media (max-width: 720px) {
+    .type-row { grid-template-columns: 1fr 1fr; gap: 4px 14px; }
+    .type-row .demo { grid-column: 1 / -1; }
+  }
+
+  /* ---------- Diagrams ---------- */
+  .diagram {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+    overflow-x: auto;
+  }
+  .layer-stack {
+    display: grid;
+    gap: 10px;
+  }
+  .layer {
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--phos);
+    background: var(--bg-2);
+    padding: 12px 14px;
+    border-radius: 3px;
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 18px;
+    font-size: 13.5px;
+  }
+  .layer .ll { font-family: var(--mono); font-size: 11px; color: var(--phos); letter-spacing: 0.16em; text-transform: uppercase; }
+  .layer .lt { color: var(--ink-dim); }
+  .layer.note { border-left-color: var(--mag); }
+  .layer.note .ll { color: var(--mag); }
+  @media (max-width: 720px) { .layer { grid-template-columns: 1fr; gap: 4px; } }
+
+  /* Card system map */
+  .card-map {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 720px) { .card-map { grid-template-columns: 1fr; } }
+  .card-map .node {
+    border: 1px solid var(--line);
+    background: var(--bg-1);
+    padding: 14px;
+    border-radius: var(--radius);
+  }
+  .card-map .node .h {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--phos);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .card-map .node ul {
+    margin: 0; padding-left: 16px;
+    font-size: 13px; color: var(--ink-dim);
+  }
+  .card-map .node li { margin-bottom: 3px; }
+  .card-map .node code { font-size: 11.5px; }
+
+  /* Lists */
+  ul.clean { list-style: none; padding-left: 0; margin: 0; }
+  ul.clean li {
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--line);
+    color: var(--ink-dim);
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 10px;
+    align-items: baseline;
+  }
+  ul.clean li:last-child { border-bottom: 0; }
+  ul.clean li::before {
+    content: "›";
+    color: var(--phos);
+    font-family: var(--mono);
+  }
+  ul.clean li b { color: var(--ink); font-weight: 500; }
+
+  /* Two-col convention listing */
+  .conv {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 14px 0;
+  }
+  @media (max-width: 720px) { .conv { grid-template-columns: 1fr; } }
+  .conv .ok, .conv .no {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    background: var(--bg-1);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+  }
+  .conv .ok { border-left: 2px solid var(--phos); }
+  .conv .no { border-left: 2px solid var(--danger); opacity: 0.85; }
+  .conv .h {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 8px;
+  }
+  .conv .ok .h b { color: var(--phos); }
+  .conv .no .h b { color: var(--danger); }
+  .conv .row { color: var(--ink); }
+  .conv .row.dim { color: var(--ink-mute); text-decoration: line-through; }
+
+  /* Phase timeline */
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  @media (max-width: 900px) { .timeline { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 520px) { .timeline { grid-template-columns: 1fr; } }
+  .phase {
+    padding: 18px 18px 20px;
+    background: var(--bg-1);
+    border-right: 1px solid var(--line);
+    position: relative;
+  }
+  .phase:last-child { border-right: 0; }
+  .phase .ph {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .phase .ph b { color: var(--phos); font-weight: 500; }
+  .phase h5 {
+    font-family: var(--sans);
+    font-size: 14.5px;
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  .phase p { font-size: 12.5px; color: var(--ink-dim); margin: 0; }
+  .phase.next .ph b { color: var(--mag); }
+  .phase.next { background: linear-gradient(180deg, var(--bg-1), color-mix(in oklab, var(--mag) 4%, var(--bg-1))); }
+
+  /* Mobile breakpoint diagram */
+  .bp-row {
+    display: grid;
+    grid-template-columns: 90px 80px 1fr;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .bp-row:last-child { border-bottom: 0; }
+  .bp-row .bar {
+    height: 8px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+  .bp-row .bar i {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--phos);
+    opacity: 0.7;
+  }
+  .bp-row .lbl { font-family: var(--mono); font-size: 11px; color: var(--phos); letter-spacing: 0.1em; text-transform: uppercase; }
+  .bp-row .px { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
+
+  /* Animation table small */
+  .anim-card {
+    border: 1px solid var(--line);
+    background: var(--bg-1);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .anim-card .ah {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--phos);
+    margin-bottom: 8px;
+  }
+  .anim-card p { font-size: 13px; color: var(--ink-dim); margin: 0; }
+  .anim-card .e { font-family: var(--mono); color: var(--ink); font-size: 12px; margin-top: 6px; }
+
+  /* Footer */
+  footer.colophon {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* selectable nav */
+  .toc {
+    position: sticky;
+    top: 0;
+    background: color-mix(in oklab, var(--bg) 92%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--line);
+    z-index: 5;
+    margin: 0 -32px;
+    padding: 10px 32px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  @media (max-width: 720px) { .toc { margin: 0 -18px; padding: 10px 18px; } }
+  .toc a {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    text-decoration: none;
+    margin-right: 22px;
+  }
+  .toc a:hover { color: var(--phos); }
+  .toc a .n { color: var(--ink-mute); margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ===== META BAR ===== -->
+  <div class="meta-bar">
+    <span><span class="dot"></span>CYBERJOURNEY · ARCHITECTURE SPEC</span>
+    <span class="kv"><b>VERSION</b> 0.1 · DRAFT</span>
+    <span class="kv"><b>OWNER</b> SR. ARCHITECT</span>
+    <span class="kv"><b>STATUS</b> PRE-IMPLEMENTATION</span>
+  </div>
+
+  <!-- ===== HERO ===== -->
+  <header class="hero">
+    <div class="eyebrow">// 00 · MISSION</div>
+    <h1 class="title">A focused tracker for the long climb from <em>script-kiddie</em> to <em>operator.</em></h1>
+    <p class="lede">CyberJourney is a personal cybersecurity learning tracker, built as a portfolio project. It unifies progress across OverTheWire, TryHackMe, Hack&nbsp;The&nbsp;Box, and PortSwigger Web Security Academy into one local-first React app. The goal is not a SaaS. The goal is a small, well-made codebase I'd happily put my name on and use myself.</p>
+    <div class="stack-strip">
+      <span class="pill now">React 18</span>
+      <span class="pill now">Vite</span>
+      <span class="pill now">Tailwind v3</span>
+      <span class="pill now">Framer Motion</span>
+      <span class="pill now">React Router 6</span>
+      <span class="pill now">Context + reducer</span>
+      <span class="pill now">LocalStorage</span>
+      <span class="pill next">↗ storage adapter (swap-ready)</span>
+    </div>
+  </header>
+
+  <!-- ===== TOC ===== -->
+  <nav class="toc" aria-label="Sections">
+    <a href="#folders"><span class="n">01</span>Folders</a>
+    <a href="#components"><span class="n">02</span>Components</a>
+    <a href="#pages"><span class="n">03</span>Pages &amp; Routes</a>
+    <a href="#state"><span class="n">04</span>State</a>
+    <a href="#tracking"><span class="n">05</span>Tracking</a>
+    <a href="#cards"><span class="n">06</span>Card System</a>
+    <a href="#ui"><span class="n">07</span>UI System</a>
+    <a href="#design"><span class="n">08</span>Design Tokens</a>
+    <a href="#motion"><span class="n">09</span>Motion</a>
+    <a href="#mobile"><span class="n">10</span>Mobile</a>
+    <a href="#naming"><span class="n">11</span>Naming</a>
+    <a href="#scale"><span class="n">12</span>Scale</a>
+    <a href="#rules"><span class="n">13</span>Rules</a>
+  </nav>
+
+  <!-- =========================================================
+       01 · FOLDER STRUCTURE
+  ========================================================== -->
+  <section class="block" id="folders">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>01</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Folder structure</h2>
+        <p class="sec-sub">Feature-first inside <code>src/</code>. Cross-cutting concerns live at the top level; each <i>tracker</i> (platform integration) is an isolated feature folder so a fifth platform can be added without touching shared code.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+<div class="tree" aria-label="src directory tree">
+<span class="dir">cyberjourney/</span>
+├── <span class="file">index.html</span>
+├── <span class="file">vite.config.js</span>
+├── <span class="file">tailwind.config.js</span>
+├── <span class="file">postcss.config.js</span>
+├── <span class="file">PROJECT_RULES.md</span>           <span class="note"># source-of-truth conventions</span>
+├── <span class="file">README.md</span>
+├── <span class="dir">public/</span>
+│   └── <span class="file">favicon.svg</span>
+└── <span class="dir">src/</span>
+    ├── <span class="file">main.jsx</span>                    <span class="note"># mount + router</span>
+    ├── <span class="file">App.jsx</span>                     <span class="note"># shell, providers, layout</span>
+    ├── <span class="dir">app/</span>                         <span class="note"># app-level wiring</span>
+    │   ├── <span class="file">router.jsx</span>
+    │   ├── <span class="file">providers.jsx</span>             <span class="note"># theme, motion, store hydration</span>
+    │   └── <span class="file">layout/</span>
+    │       ├── <span class="file">AppShell.jsx</span>
+    │       ├── <span class="file">SideRail.jsx</span>
+    │       ├── <span class="file">MobileTabBar.jsx</span>
+    │       └── <span class="file">TopBar.jsx</span>
+    ├── <span class="dir">pages/</span>                       <span class="note"># route-level views, thin</span>
+    │   ├── <span class="file">DashboardPage.jsx</span>
+    │   ├── <span class="file">TrackersPage.jsx</span>
+    │   ├── <span class="file">TrackerDetailPage.jsx</span>
+    │   ├── <span class="file">TimelinePage.jsx</span>
+    │   ├── <span class="file">SkillsPage.jsx</span>
+    │   ├── <span class="file">JournalPage.jsx</span>
+    │   ├── <span class="file">SettingsPage.jsx</span>
+    │   └── <span class="file">NotFoundPage.jsx</span>
+    ├── <span class="dir">features/</span>                    <span class="note"># vertical slices</span>
+    │   ├── <span class="dir">trackers/</span>                  <span class="note"># shared tracker domain</span>
+    │   │   ├── <span class="file">trackerRegistry.js</span>      <span class="note"># declarative platform manifest</span>
+    │   │   ├── <span class="file">useTrackerStore.js</span>
+    │   │   ├── <span class="file">selectors.js</span>
+    │   │   ├── <span class="file">progress.math.js</span>       <span class="note"># pure functions only</span>
+    │   │   └── <span class="dir">components/</span>
+    │   │       ├── <span class="file">TrackerCard.jsx</span>
+    │   │       ├── <span class="file">TrackerGrid.jsx</span>
+    │   │       ├── <span class="file">ProgressRing.jsx</span>
+    │   │       ├── <span class="file">ProgressBar.jsx</span>
+    │   │       └── <span class="file">ChallengeRow.jsx</span>
+    │   ├── <span class="dir">overthewire/</span>
+    │   │   ├── <span class="file">otw.config.js</span>          <span class="note"># wargames + level counts</span>
+    │   │   ├── <span class="file">otw.adapter.js</span>         <span class="note"># implements TrackerAdapter</span>
+    │   │   └── <span class="file">OTWDetail.jsx</span>
+    │   ├── <span class="dir">tryhackme/</span>
+    │   │   ├── <span class="file">thm.config.js</span>
+    │   │   ├── <span class="file">thm.adapter.js</span>
+    │   │   └── <span class="file">THMDetail.jsx</span>
+    │   ├── <span class="dir">hackthebox/</span>
+    │   │   ├── <span class="file">htb.config.js</span>
+    │   │   ├── <span class="file">htb.adapter.js</span>
+    │   │   └── <span class="file">HTBDetail.jsx</span>
+    │   ├── <span class="dir">portswigger/</span>
+    │   │   ├── <span class="file">psw.config.js</span>
+    │   │   ├── <span class="file">psw.adapter.js</span>
+    │   │   └── <span class="file">PSWDetail.jsx</span>
+    │   ├── <span class="dir">journal/</span>                  <span class="note"># notes per challenge</span>
+    │   ├── <span class="dir">skills/</span>                   <span class="note"># tag-based skill graph</span>
+    │   └── <span class="dir">timeline/</span>                 <span class="note"># activity log</span>
+    ├── <span class="dir">ui/</span>                          <span class="note"># presentation primitives</span>
+    │   ├── <span class="file">Button.jsx</span>
+    │   ├── <span class="file">Card.jsx</span>                  <span class="note"># &lt;Card.Root/&gt;.&lt;Header/&gt;.&lt;Body/&gt;.&lt;Footer/&gt;</span>
+    │   ├── <span class="file">Badge.jsx</span>
+    │   ├── <span class="file">Tag.jsx</span>
+    │   ├── <span class="file">Modal.jsx</span>
+    │   ├── <span class="file">Drawer.jsx</span>
+    │   ├── <span class="file">Tooltip.jsx</span>
+    │   ├── <span class="file">Input.jsx</span>
+    │   ├── <span class="file">Select.jsx</span>
+    │   ├── <span class="file">Toggle.jsx</span>
+    │   ├── <span class="file">Tabs.jsx</span>
+    │   ├── <span class="file">EmptyState.jsx</span>
+    │   ├── <span class="file">SkeletonRow.jsx</span>
+    │   └── <span class="file">icons/</span>
+    ├── <span class="dir">hooks/</span>
+    │   ├── <span class="file">useLocalStorage.js</span>
+    │   ├── <span class="file">useMediaQuery.js</span>
+    │   ├── <span class="file">usePrefersReducedMotion.js</span>
+    │   ├── <span class="file">useDebouncedValue.js</span>
+    │   └── <span class="file">useHotkey.js</span>
+    ├── <span class="dir">lib/</span>                         <span class="note"># framework-agnostic</span>
+    │   ├── <span class="file">storage/</span>
+    │   │   ├── <span class="file">storageAdapter.js</span>      <span class="note"># interface (read/write/list)</span>
+    │   │   ├── <span class="file">localStorageDriver.js</span>
+    │   │   └── <span class="file">cloudDriver.js</span>          <span class="new"># optional · future me's problem</span>
+    │   ├── <span class="file">id.js</span>                    <span class="note"># nanoid wrapper</span>
+    │   ├── <span class="file">date.js</span>
+    │   ├── <span class="file">cn.js</span>                    <span class="note"># tailwind-merge + clsx</span>
+    │   └── <span class="file">analytics.js</span>             <span class="note"># local event log</span>
+    ├── <span class="dir">data/</span>
+    │   ├── <span class="file">schema.js</span>                <span class="note"># zod schemas mirroring future DB</span>
+    │   ├── <span class="file">seed.dev.js</span>              <span class="note"># dev-only sample data</span>
+    │   └── <span class="file">migrations/</span>              <span class="note"># versioned localStorage bumps</span>
+    ├── <span class="dir">styles/</span>
+    │   ├── <span class="file">tokens.css</span>               <span class="note"># CSS variables</span>
+    │   ├── <span class="file">globals.css</span>
+    │   └── <span class="file">scanlines.css</span>            <span class="note"># opt-in cyberpunk fx</span>
+    └── <span class="dir">test/</span>
+        ├── <span class="file">setup.js</span>
+        └── <span class="dir">__fixtures__/</span>
+</div>
+
+      <h3>Why feature-first</h3>
+      <ul class="clean">
+        <li><b>Locality of behaviour.</b> Everything an integration owns — config, adapter, detail page, types — sits in one folder. Deleting a platform is <code>rm -rf features/x</code>.</li>
+        <li><b>Stable surfaces.</b> <code>ui/</code>, <code>lib/</code>, and <code>hooks/</code> change rarely; <code>features/</code> changes constantly. Separating churn from stability keeps reviews small.</li>
+        <li><b>Test boundaries.</b> Each feature folder may carry its own <code>__tests__</code>. Cross-feature tests live under <code>test/</code>.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       02 · COMPONENT ARCHITECTURE
+  ========================================================== -->
+  <section class="block" id="components">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>02</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Component architecture</h2>
+        <p class="sec-sub">Four tiers, strict one-way dependencies. A higher tier may import from any lower tier; never the reverse.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="diagram">
+        <div class="layer-stack">
+          <div class="layer">
+            <div class="ll">Tier 4 · Pages</div>
+            <div class="lt">Route-level views. Compose features. No business logic, no styling that isn't layout. e.g. <code>DashboardPage</code>, <code>TrackerDetailPage</code>.</div>
+          </div>
+          <div class="layer">
+            <div class="ll">Tier 3 · Features</div>
+            <div class="lt">Domain-aware composite components and hooks. May read store, dispatch actions, call adapters. e.g. <code>TrackerCard</code>, <code>ChallengeRow</code>, <code>SkillRadar</code>.</div>
+          </div>
+          <div class="layer">
+            <div class="ll">Tier 2 · UI Kit</div>
+            <div class="lt">Headless-ish presentation primitives. Knows nothing about trackers. e.g. <code>Card</code>, <code>Button</code>, <code>Badge</code>, <code>Tabs</code>.</div>
+          </div>
+          <div class="layer note">
+            <div class="ll">Tier 1 · Lib / Hooks</div>
+            <div class="lt">Pure functions, storage drivers, framework-agnostic utilities. Unit-testable in isolation.</div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Component contract</h3>
+      <ul class="clean">
+        <li>Every component is a <b>named function</b> export, never default. One component per file, file named in <code>PascalCase.jsx</code>.</li>
+        <li>Props are <b>destructured at signature</b>; required props first, optional second, <code>className</code> + <code>...rest</code> last.</li>
+        <li>UI primitives accept <b><code>className</code></b> and forward it via <code>cn()</code>. They <b>do not</b> own colors as props — variants only (e.g. <code>tone="phos" | "mag" | "muted"</code>).</li>
+        <li>Composite components own layout; primitives own atomic style. <b>No magic numbers in JSX</b> — only Tailwind classes or token-derived utility classes.</li>
+        <li>Side effects live in hooks, not components. A component file with <code>fetch</code> or <code>localStorage</code> in it is a smell.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       03 · PAGES & ROUTES
+  ========================================================== -->
+  <section class="block" id="pages">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>03</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Page structure &amp; routing</h2>
+        <p class="sec-sub">React Router 6 with nested routes under a persistent <code>AppShell</code>. URL is the source of truth for navigation state; nothing important lives only in component state.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <table class="spec" aria-label="Routes">
+        <thead>
+          <tr><th>Path</th><th>Component</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="k">/</td><td class="k">DashboardPage</td><td class="t">Hero KPIs, four tracker cards, recent activity, current streak.</td></tr>
+          <tr><td class="k">/trackers</td><td class="k">TrackersPage</td><td class="t">All four platforms side-by-side with filter + sort.</td></tr>
+          <tr><td class="k">/trackers/:slug</td><td class="k">TrackerDetailPage</td><td class="t">Per-platform deep dive. Slug ∈ <code>otw|thm|htb|psw</code>.</td></tr>
+          <tr><td class="k">/trackers/:slug/:challengeId</td><td class="k">ChallengeView</td><td class="t">Single challenge: notes, status, time spent, tags.</td></tr>
+          <tr><td class="k">/timeline</td><td class="k">TimelinePage</td><td class="t">Append-only activity log across platforms.</td></tr>
+          <tr><td class="k">/skills</td><td class="k">SkillsPage</td><td class="t">Tag-derived skill graph and per-skill maturity.</td></tr>
+          <tr><td class="k">/journal</td><td class="k">JournalPage</td><td class="t">Long-form write-ups and lessons learned.</td></tr>
+          <tr><td class="k">/settings</td><td class="k">SettingsPage</td><td class="t">Theme, motion preference, data export / import, danger zone.</td></tr>
+          <tr><td class="k">*</td><td class="k">NotFoundPage</td><td class="t">404 with terminal-style fallback.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Layout strategy</h3>
+      <ul class="clean">
+        <li><b>Shell-with-outlet.</b> <code>AppShell</code> renders the side rail (desktop) or bottom tab bar (mobile) plus a <code>&lt;Outlet/&gt;</code>. Page components never render chrome.</li>
+        <li><b>Suspense per route.</b> Each lazy-loaded page is wrapped in a <code>RouteSuspense</code> with a skeleton matching its final layout.</li>
+        <li><b>Scroll restoration</b> is per-route, opt-out on detail pages so back-navigation feels stateful.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       04 · STATE MANAGEMENT
+  ========================================================== -->
+  <section class="block" id="state">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>04</b> / 13</div>
+      <div>
+        <h2 class="sec-title">State management strategy</h2>
+        <p class="sec-sub">Three rings of state, smallest to widest. The rule: <i>state lives at the narrowest ring that still works</i>.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="grid cols-3">
+        <div class="card">
+          <div class="tag"><span class="num">R1</span>Local / Component</div>
+          <h4>useState · useReducer</h4>
+          <p>Form inputs, hover, open/close, transient UI. Never persisted, never serialised.</p>
+        </div>
+        <div class="card">
+          <div class="tag"><span class="num">R2</span>Cross-cut / Session</div>
+          <h4>React Context</h4>
+          <p>Theme, motion preference, hotkey scope, toast queue. Read-mostly, low-churn values only.</p>
+        </div>
+        <div class="card">
+          <div class="tag"><span class="num">R3</span>Domain / Persisted</div>
+          <h4>Context + reducer</h4>
+          <p>Tracker progress, journal entries, settings. Mediated by <code>storageAdapter</code> — swap driver, not store. Zustand could slot in here later; doesn't earn its keep at this size.</p>
+        </div>
+      </div>
+
+      <h3>Store shape</h3>
+<div class="tree">
+<span class="dir">useTrackerStore</span>
+├── <span class="file">user</span>: { handle, joinedAt, prefs }
+├── <span class="file">trackers</span>: Record&lt;slug, TrackerState&gt;
+│   └── <span class="dir">TrackerState</span>
+│       ├── <span class="file">slug</span>: 'otw' | 'thm' | 'htb' | 'psw'
+│       ├── <span class="file">lastSyncedAt</span>: ISO string | null
+│       ├── <span class="file">items</span>: Record&lt;id, ChallengeProgress&gt;
+│       └── <span class="file">stats</span>: { completed, inProgress, total, timeMin }
+├── <span class="file">journal</span>: JournalEntry[]
+├── <span class="file">events</span>: ActivityEvent[]               <span class="note"># append-only</span>
+├── <span class="file">settings</span>: { theme, motion, density, scanlines }
+└── <span class="file">_meta</span>: { schemaVersion, driver, hydratedAt }
+</div>
+
+      <h3>Persistence flow</h3>
+      <ul class="clean">
+        <li><b>Selector-driven writes.</b> Components call action creators (<code>logCompletion</code>, <code>updateNote</code>); the store mutates and the driver persists via a single <code>persist</code> middleware.</li>
+        <li><b>Driver abstraction.</b> <code>storageAdapter</code> exposes <code>get / set / list / remove</code>. Today the only driver is <code>localStorageDriver</code>. If I ever want cloud sync, I write a new driver — the store and UI don't change.</li>
+        <li><b>Schema versioning.</b> <code>_meta.schemaVersion</code> gates a tiny migration table. Bumps require a <code>data/migrations/v00X.js</code> file. Painless to start, painful to retrofit — so I start with it.</li>
+        <li><b>Optimistic UI.</b> All writes apply locally first. Since the only driver is synchronous localStorage, this is trivial today; it stays trivial if a network driver ever gets added.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       05 · PROGRESS TRACKING ARCHITECTURE
+  ========================================================== -->
+  <section class="block" id="tracking">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>05</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Progress tracking architecture</h2>
+        <p class="sec-sub">Each platform is wildly different — wargames, rooms, machines, labs. We model them through a single <code>TrackerAdapter</code> contract so the UI is platform-agnostic.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="card-map">
+        <div class="node">
+          <div class="h">Adapter contract</div>
+          <ul>
+            <li><code>id</code></li>
+            <li><code>label</code></li>
+            <li><code>getCatalog() → Challenge[]</code></li>
+            <li><code>normalize(raw) → ChallengeProgress</code></li>
+            <li><code>computeStats(state) → Stats</code></li>
+            <li><code>icon</code>, <code>accent</code></li>
+          </ul>
+        </div>
+        <div class="node">
+          <div class="h">Challenge model</div>
+          <ul>
+            <li><code>id</code> · platform-scoped</li>
+            <li><code>title</code>, <code>track</code></li>
+            <li><code>difficulty</code>: 1–5</li>
+            <li><code>tags</code>: skill[]</li>
+            <li><code>status</code>: idle | wip | done | stuck</li>
+            <li><code>timeMin</code>, <code>completedAt</code></li>
+            <li><code>notesRef</code> → journal id</li>
+          </ul>
+        </div>
+        <div class="node">
+          <div class="h">Derived metrics</div>
+          <ul>
+            <li>Completion ratio</li>
+            <li>Avg. time / difficulty</li>
+            <li>Streak (consecutive active days)</li>
+            <li>Skill maturity (weighted tag scores)</li>
+            <li>Velocity (7-day rolling)</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Why an adapter, not bespoke pages</h3>
+      <ul class="clean">
+        <li><b>Uniform UI.</b> <code>TrackerCard</code>, <code>ProgressRing</code>, <code>ChallengeRow</code> only know the canonical model. Adding a fifth platform means writing one adapter + one config.</li>
+        <li><b>Pure math.</b> <code>progress.math.js</code> is a set of pure functions taking <code>TrackerState</code>. 100% testable, zero React.</li>
+        <li><b>Event sourcing-lite.</b> Every state-changing action also appends to <code>events</code> with type + payload + timestamp. The timeline page reads exclusively from <code>events</code>.</li>
+      </ul>
+
+      <h3>Inputs, now and maybe-later</h3>
+      <table class="spec">
+        <thead><tr><th>Stage</th><th>Source of truth</th><th>How it enters the store</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Now</td><td class="t">Hand-curated catalogs in <code>*.config.js</code> + user-entered progress</td><td class="t">Manual check-off via the UI. CSV import optional.</td></tr>
+          <tr><td class="k">Maybe</td><td class="t">The above, with markdown journal cross-refs</td><td class="t">Journal entry tags auto-suggest challenge linking.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       06 · CARD SYSTEM
+  ========================================================== -->
+  <section class="block" id="cards">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>06</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Reusable card system</h2>
+        <p class="sec-sub">A single composable <code>&lt;Card/&gt;</code> primitive backs every information surface. Variants are composition, not boolean props.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="diagram">
+        <div class="layer-stack">
+          <div class="layer">
+            <div class="ll">Card.Root</div>
+            <div class="lt">Bordered panel. Owns radius, background, hover affordance, optional accent rail.</div>
+          </div>
+          <div class="layer">
+            <div class="ll">Card.Header</div>
+            <div class="lt">Eyebrow label (mono), title, optional action slot. Always present on data cards.</div>
+          </div>
+          <div class="layer">
+            <div class="ll">Card.Body</div>
+            <div class="lt">Free content. Sets internal padding rhythm.</div>
+          </div>
+          <div class="layer">
+            <div class="ll">Card.Footer</div>
+            <div class="lt">Meta strip — timestamps, secondary actions, status badges.</div>
+          </div>
+          <div class="layer note">
+            <div class="ll">Card.Accent</div>
+            <div class="lt">2px left rail in tracker accent color. Opt-in via prop <code>accent="otw"</code>.</div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Card variants (by composition)</h3>
+      <div class="grid cols-4">
+        <div class="card"><div class="tag"><span class="num">v01</span>Tracker</div><h4>TrackerCard</h4><p>Ring, completion %, deltas, click → detail.</p></div>
+        <div class="card alt"><div class="tag"><span class="num">v02</span>KPI</div><h4>StatCard</h4><p>Big number, sparkline, label, trend arrow.</p></div>
+        <div class="card"><div class="tag"><span class="num">v03</span>Activity</div><h4>EventCard</h4><p>Compact timeline entry with icon + relative time.</p></div>
+        <div class="card alt"><div class="tag"><span class="num">v04</span>Challenge</div><h4>ChallengeCard</h4><p>Title, tags, difficulty pip, status pill.</p></div>
+        <div class="card"><div class="tag"><span class="num">v05</span>Skill</div><h4>SkillCard</h4><p>Tag-as-skill with maturity bar.</p></div>
+        <div class="card alt"><div class="tag"><span class="num">v06</span>Journal</div><h4>JournalCard</h4><p>Title, excerpt, linked challenges count.</p></div>
+        <div class="card"><div class="tag"><span class="num">v07</span>Empty</div><h4>EmptyCard</h4><p>Empty-state framing inside grids.</p></div>
+        <div class="card alt"><div class="tag"><span class="num">v08</span>Skeleton</div><h4>SkeletonCard</h4><p>Shimmer placeholder mirroring real Card body.</p></div>
+      </div>
+
+      <p class="muted" style="margin-top:18px;">Cards never set their own width. Layout is the parent's job — a grid, a stack, a flex row.</p>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       07 · UI SYSTEM
+  ========================================================== -->
+  <section class="block" id="ui">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>07</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Reusable UI system</h2>
+        <p class="sec-sub">Small kit, sharp edges, zero dependencies beyond what's in the stack. Built on Tailwind utility classes + token-driven variants. <code>shadcn/ui</code> is <em>not</em> a dependency — we own the surface.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="grid cols-3">
+        <div class="card"><h4>Button</h4><p class="muted">Tones: <code>phos</code> · <code>ghost</code> · <code>mag</code> · <code>danger</code>. Sizes: <code>sm · md · lg</code>. Loading + icon-only states.</p></div>
+        <div class="card"><h4>Badge / Tag</h4><p class="muted">Badge = status (filled). Tag = skill/category (outlined). Never invert.</p></div>
+        <div class="card"><h4>Input · Select · Toggle</h4><p class="muted">Same height (36 / 44 mobile). Always paired with <code>FormField</code> wrapper for label + error.</p></div>
+        <div class="card"><h4>Modal · Drawer</h4><p class="muted">Drawer is the mobile equivalent of Modal. Routing-aware: <code>?modal=…</code> opens, back closes.</p></div>
+        <div class="card"><h4>Tabs · Segmented</h4><p class="muted">URL-synced tabs for detail pages; uncontrolled Segmented for in-card filters.</p></div>
+        <div class="card"><h4>Toast · Empty · Skeleton</h4><p class="muted">Toasts are session-only. Every list view ships an empty + skeleton state on day one.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       08 · DESIGN SYSTEM
+  ========================================================== -->
+  <section class="block" id="design">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>08</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Dark cyberpunk design system</h2>
+        <p class="sec-sub">Restrained palette, generous negative space, a single phosphor accent doing the work. Tokens live in <code>styles/tokens.css</code> and are surfaced to Tailwind via <code>theme.extend</code>.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <h3>Color tokens</h3>
+      <div class="swatches">
+        <div class="sw"><div class="chip" style="background:#070a09"></div><div class="name">--bg</div><div class="val">#070a09</div></div>
+        <div class="sw"><div class="chip" style="background:#0c1110"></div><div class="name">--bg-1</div><div class="val">#0c1110</div></div>
+        <div class="sw"><div class="chip" style="background:#121917"></div><div class="name">--bg-2</div><div class="val">#121917</div></div>
+        <div class="sw"><div class="chip" style="background:#1c2622"></div><div class="name">--line</div><div class="val">#1c2622</div></div>
+        <div class="sw"><div class="chip" style="background:#d6e2dc"></div><div class="name">--ink</div><div class="val">#d6e2dc</div></div>
+        <div class="sw"><div class="chip" style="background:#8a978f"></div><div class="name">--ink-dim</div><div class="val">#8a978f</div></div>
+        <div class="sw"><div class="chip" style="background:oklch(0.86 0.18 155)"></div><div class="name">--phos</div><div class="val">oklch(.86 .18 155)</div></div>
+        <div class="sw"><div class="chip" style="background:oklch(0.72 0.16 340)"></div><div class="name">--mag</div><div class="val">oklch(.72 .16 340)</div></div>
+        <div class="sw"><div class="chip" style="background:oklch(0.82 0.14 80)"></div><div class="name">--amber</div><div class="val">oklch(.82 .14 80)</div></div>
+        <div class="sw"><div class="chip" style="background:oklch(0.70 0.20 25)"></div><div class="name">--danger</div><div class="val">oklch(.70 .20 25)</div></div>
+        <div class="sw"><div class="chip" style="background:#283530"></div><div class="name">--line-2</div><div class="val">#283530</div></div>
+        <div class="sw"><div class="chip" style="background:#5a6660"></div><div class="name">--ink-mute</div><div class="val">#5a6660</div></div>
+      </div>
+
+      <h3>Tracker accents</h3>
+      <table class="spec">
+        <thead><tr><th>Slug</th><th>Hue</th><th>Use</th></tr></thead>
+        <tbody>
+          <tr><td class="k">otw</td><td class="k phos">oklch(0.86 0.18 155)</td><td class="t">Phosphor — the default / "home" accent.</td></tr>
+          <tr><td class="k">thm</td><td class="k" style="color:oklch(0.82 0.14 80)">oklch(0.82 0.14 80)</td><td class="t">Amber — warm contrast for warm community brand.</td></tr>
+          <tr><td class="k">htb</td><td class="k mag">oklch(0.72 0.16 340)</td><td class="t">Magenta — operator surface.</td></tr>
+          <tr><td class="k">psw</td><td class="k" style="color:oklch(0.78 0.14 220)">oklch(0.78 0.14 220)</td><td class="t">Cool blue — distinct from the other three.</td></tr>
+        </tbody>
+      </table>
+      <p class="muted">Accents are never used for body text or large fills. They appear in 2px rails, ring fills, badges, and at most one focal element per card.</p>
+
+      <h3>Typography</h3>
+      <div>
+        <div class="type-row">
+          <div class="label">Display</div><div class="size">48 / 1.02</div><div class="use">page hero</div>
+          <div class="demo" style="font-size:36px;font-weight:600;letter-spacing:-0.02em;">From script-kiddie to operator.</div>
+        </div>
+        <div class="type-row">
+          <div class="label">H1</div><div class="size">28 / 1.1</div><div class="use">section</div>
+          <div class="demo" style="font-size:24px;font-weight:600;letter-spacing:-0.01em;">Reusable card system</div>
+        </div>
+        <div class="type-row">
+          <div class="label">H2</div><div class="size">20 / 1.2</div><div class="use">card title</div>
+          <div class="demo" style="font-size:18px;font-weight:600;">TrackerCard</div>
+        </div>
+        <div class="type-row">
+          <div class="label">Body</div><div class="size">15 / 1.55</div><div class="use">prose</div>
+          <div class="demo">A small, local-first React app that I'd happily put my name on.</div>
+        </div>
+        <div class="type-row">
+          <div class="label">Label</div><div class="size">11 / 1.2</div><div class="use">eyebrow / mono</div>
+          <div class="demo mono" style="text-transform:uppercase;letter-spacing:.18em;color:var(--phos);font-size:11px;">// SEC · 08 / 13</div>
+        </div>
+        <div class="type-row">
+          <div class="label">Code</div><div class="size">12.5 / 1.7</div><div class="use">data, paths</div>
+          <div class="demo mono" style="font-size:12.5px;">features/trackers/progress.math.js</div>
+        </div>
+      </div>
+
+      <h3>Spacing &amp; radii</h3>
+      <ul class="clean">
+        <li><b>4px base scale</b> — <code>2 · 4 · 8 · 12 · 16 · 20 · 24 · 32 · 48 · 64</code>. No values off-scale.</li>
+        <li><b>Radii</b> — <code>3px</code> chips, <code>4px</code> cards, <code>8px</code> modals. No pill radii on rectangles.</li>
+        <li><b>Borders</b> — 1px solid <code>--line</code> default; 2px <code>--phos</code> accent rail; never both on the same edge.</li>
+        <li><b>Elevation</b> — flat by default. Use border, not shadow, to separate surfaces. A single soft shadow exists for floating overlays only.</li>
+      </ul>
+
+      <h3>Cyberpunk discipline</h3>
+      <ul class="clean">
+        <li><b>One glow per screen, maximum.</b> Usually the active progress ring or a critical CTA.</li>
+        <li><b>No neon gradients.</b> Flat fills only. Saturation comes from one accent against deep neutral, not from rainbows.</li>
+        <li><b>Scanlines are opt-in.</b> Off by default; toggleable in Settings via <code>.scanlines</code> body class. Respects <code>prefers-reduced-motion</code>.</li>
+        <li><b>Monospace is structural, not decorative.</b> It labels data; it doesn't replace prose.</li>
+        <li><b>No emoji.</b> Status uses badges + symbols (●, ◐, ◯, ⨯).</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       09 · MOTION
+  ========================================================== -->
+  <section class="block" id="motion">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>09</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Animation strategy</h2>
+        <p class="sec-sub">Framer Motion, used like a scalpel. Animation conveys state change or hierarchy; it never decorates idle UI.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="grid cols-3">
+        <div class="anim-card">
+          <div class="ah">// Route transition</div>
+          <p>Cross-fade + 6px y-shift. 220ms, <code>easeOut</code>. Wrapped in <code>&lt;AnimatePresence mode="wait"/&gt;</code> at the route boundary.</p>
+          <div class="e">opacity 0→1 · y 6→0 · 220ms</div>
+        </div>
+        <div class="anim-card">
+          <div class="ah">// Card enter</div>
+          <p>Staggered 30ms per item, max 8 items animated; the rest snap. Only on first paint of a list — not on re-renders.</p>
+          <div class="e">stagger(0.03) · y 8→0</div>
+        </div>
+        <div class="anim-card">
+          <div class="ah">// Progress ring</div>
+          <p>Spring on completion delta. Subtle scale-pulse (1 → 1.03 → 1) only when value increases.</p>
+          <div class="e">spring · stiffness 220 · damping 22</div>
+        </div>
+        <div class="anim-card">
+          <div class="ah">// Modal / Drawer</div>
+          <p>Backdrop fades 140ms; surface springs 180ms. Drawer slides from bottom on mobile, right on desktop.</p>
+          <div class="e">backdrop 140ms · surface spring</div>
+        </div>
+        <div class="anim-card">
+          <div class="ah">// Status pill</div>
+          <p><code>layoutId</code> on the pill so transitioning <code>wip → done</code> morphs in place rather than re-rendering.</p>
+          <div class="e">layoutId="status-{id}"</div>
+        </div>
+        <div class="anim-card">
+          <div class="ah">// Hover</div>
+          <p>Cards lift via border-color brightening only; no translateY, no shadow swap. Costs are predictable.</p>
+          <div class="e">border-color 120ms</div>
+        </div>
+      </div>
+
+      <h3>Rules</h3>
+      <ul class="clean">
+        <li><b>Reduced motion is law.</b> Wrap all non-essential animation with <code>usePrefersReducedMotion()</code>. Reduced mode = opacity-only, no movement, no springs.</li>
+        <li><b>No infinite loops.</b> No background ambient animations. The grid does not pulse. The cursor does not blink in chrome.</li>
+        <li><b>Durations are tokens</b>: <code>fast 120 · base 180 · slow 240 · modal 280</code>. Don't hand-pick durations in components.</li>
+        <li><b>Spring presets</b> live in <code>lib/motion.js</code> — <code>spring.soft</code>, <code>spring.snappy</code>. Components reference these by name.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       10 · MOBILE
+  ========================================================== -->
+  <section class="block" id="mobile">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>10</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Mobile-first strategy</h2>
+        <p class="sec-sub">Designed at 360px first, then unlocked up. Touch ergonomics, navigation, and data density are all locked at the small end before desktop adds breathing room.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <h3>Breakpoints</h3>
+      <div>
+        <div class="bp-row"><div class="lbl">xs</div><div class="px">≥ 0px</div><div class="bar"><i style="width:6%"></i></div></div>
+        <div class="bp-row"><div class="lbl">sm</div><div class="px">≥ 640px</div><div class="bar"><i style="width:22%"></i></div></div>
+        <div class="bp-row"><div class="lbl">md</div><div class="px">≥ 768px</div><div class="bar"><i style="width:36%"></i></div></div>
+        <div class="bp-row"><div class="lbl">lg</div><div class="px">≥ 1024px</div><div class="bar"><i style="width:58%"></i></div></div>
+        <div class="bp-row"><div class="lbl">xl</div><div class="px">≥ 1280px</div><div class="bar"><i style="width:78%"></i></div></div>
+        <div class="bp-row"><div class="lbl">2xl</div><div class="px">≥ 1536px</div><div class="bar"><i style="width:100%"></i></div></div>
+      </div>
+
+      <h3>Rules</h3>
+      <ul class="clean">
+        <li><b>Bottom tab bar &lt;md</b>, side rail ≥md. Same destinations, different chrome.</li>
+        <li><b>44px minimum hit target</b> for any tap surface. Buttons grow from 36 → 44 at <code>md</code> down.</li>
+        <li><b>Drawer instead of Modal &lt;sm</b>. Same component contract, different mounted surface.</li>
+        <li><b>No horizontal scrolling</b> outside of explicit carousels. Tables collapse to stacked cards.</li>
+        <li><b>Sticky page headers</b> are 56px tall and never overlap content; safe-area insets respected.</li>
+        <li><b>Font min size 13px</b>, body 15px. <code>line-height</code> 1.5+ across the board.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       11 · NAMING
+  ========================================================== -->
+  <section class="block" id="naming">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>11</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Naming conventions</h2>
+        <p class="sec-sub">Friction-free reading is more important than clever names. We optimise for greppability.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <table class="spec">
+        <thead><tr><th>Kind</th><th>Rule</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Folder</td><td class="t">kebab-case, plural for collections</td><td class="t mono">features/trackers/</td></tr>
+          <tr><td class="k">Component file</td><td class="t">PascalCase.jsx, one component per file</td><td class="t mono">TrackerCard.jsx</td></tr>
+          <tr><td class="k">Hook file</td><td class="t">useCamelCase.js, hook = file name</td><td class="t mono">useLocalStorage.js</td></tr>
+          <tr><td class="k">Utility file</td><td class="t">camelCase.js</td><td class="t mono">storageAdapter.js</td></tr>
+          <tr><td class="k">Config</td><td class="t">slug.config.js</td><td class="t mono">htb.config.js</td></tr>
+          <tr><td class="k">Test</td><td class="t">Sibling <code>.test.js</code> or <code>__tests__/</code></td><td class="t mono">progress.math.test.js</td></tr>
+          <tr><td class="k">CSS var</td><td class="t">--kebab, namespaced</td><td class="t mono">--card-bg</td></tr>
+          <tr><td class="k">Store action</td><td class="t">verbObject, no <code>set</code> prefix on domain mutations</td><td class="t mono">logCompletion()</td></tr>
+          <tr><td class="k">Route slug</td><td class="t">lowercase short codes</td><td class="t mono">otw · thm · htb · psw</td></tr>
+          <tr><td class="k">Event types</td><td class="t">SCREAMING_SNAKE</td><td class="t mono">CHALLENGE_COMPLETED</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Naming taste, by example</h3>
+      <div class="conv">
+        <div class="ok">
+          <div class="h"><b>Do</b></div>
+          <div class="row">TrackerCard</div>
+          <div class="row">useTrackerStore</div>
+          <div class="row">logCompletion(id)</div>
+          <div class="row">progress.math.js</div>
+          <div class="row">features/portswigger/</div>
+        </div>
+        <div class="no">
+          <div class="h"><b>Don't</b></div>
+          <div class="row dim">CardTracker</div>
+          <div class="row dim">trackerStoreHook</div>
+          <div class="row dim">setComplete(id, true)</div>
+          <div class="row dim">progressUtils.js</div>
+          <div class="row dim">features/PortSwiggerStuff/</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       12 · SCALABILITY
+  ========================================================== -->
+  <section class="block" id="scale">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>12</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Personal roadmap</h2>
+        <p class="sec-sub">No deadlines, no investors, no exit ramp. Just things I might explore next, in roughly the order I'd reach for them.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="timeline">
+        <div class="phase">
+          <div class="ph">NOW · <b>SHIPPED</b></div>
+          <h5>Local-first app</h5>
+          <p>All four trackers, Bandit 0–33 pre-seeded, markdown journal, skills, achievements, terminal, pomodoro. The MVP of <i>me</i>.</p>
+        </div>
+        <div class="phase">
+          <div class="ph">NEXT · <b>QUALITY</b></div>
+          <h5>Polish what's there</h5>
+          <p>More Bandit notes seeded from my own write-ups. PWA so it installs. Keyboard shortcuts. Smaller bundle.</p>
+        </div>
+        <div class="phase next">
+          <div class="ph">MAYBE</div>
+          <h5>CSV / Markdown import</h5>
+          <p>Drop in a folder of write-ups, parse front-matter for tags, auto-link to challenges. Still 100% local.</p>
+        </div>
+        <div class="phase next">
+          <div class="ph">MAYBE</div>
+          <h5>Cloud sync, only if I want it</h5>
+          <p>Swap the storage driver for a network-backed one. The UI doesn't change. No multi-tenancy, no billing — just one user (me) on more than one device.</p>
+        </div>
+      </div>
+
+      <h3>What's deliberately not on this list</h3>
+      <ul class="clean">
+        <li><b>Accounts, auth, multi-tenancy.</b> This is one person's tracker. Adding accounts would double the scope and triple the deploy story.</li>
+        <li><b>Public profile pages, leaderboards.</b> The whole point is honest self-tracking; the moment scores are public, I'd start gaming them.</li>
+        <li><b>Payments, subscriptions, tiers.</b> Nothing here is for sale. Every feature ships free or doesn't ship.</li>
+        <li><b>Admin dashboards, role systems, audit logs.</b> No users to administrate.</li>
+      </ul>
+
+      <h3>What I locked down anyway, because it pays back</h3>
+      <ul class="clean">
+        <li><b>Storage adapter interface.</b> Even with only one driver today, the seam is in place. Cheap insurance.</li>
+        <li><b>Append-only events.</b> The activity log is its own little event log. The heatmap reads from it, future features could too.</li>
+        <li><b>Pure adapters per tracker.</b> A fifth platform is a single folder.</li>
+        <li><b>Schema versioning, day one.</b> Trivial to start with, brutal to retrofit.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       13 · RULES INDEX
+  ========================================================== -->
+  <section class="block" id="rules">
+    <div class="sec-head">
+      <div class="sec-num">SEC · <b>13</b> / 13</div>
+      <div>
+        <h2 class="sec-title">Project rules, in one breath</h2>
+        <p class="sec-sub">The full charter lives in <code>PROJECT_RULES.md</code>. This is the cheat-sheet.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="grid cols-2">
+        <div class="card">
+          <div class="tag"><span class="num">A</span>Coding</div>
+          <h4>Strictness pays back</h4>
+          <p>Named exports only. One component per file. No default exports outside <code>pages/</code>. Hooks own side effects, components own JSX. Zod-validate everything entering the store.</p>
+        </div>
+        <div class="card alt">
+          <div class="tag"><span class="num">B</span>UI consistency</div>
+          <h4>Tokens or it didn't happen</h4>
+          <p>No literal colors, no off-scale spacing, no bespoke radii. <code>cn()</code> for class merging. Variants over props. Cards never set their own width.</p>
+        </div>
+        <div class="card">
+          <div class="tag"><span class="num">C</span>State</div>
+          <h4>Narrowest ring</h4>
+          <p>useState before context, context before store. Store actions are verbs. Persisted writes go through the adapter, never <code>localStorage</code> direct.</p>
+        </div>
+        <div class="card alt">
+          <div class="tag"><span class="num">D</span>Motion</div>
+          <h4>Restraint is a feature</h4>
+          <p>One glow per screen. Animations convey change, not vibe. Reduced-motion is enforced, not optional. Use motion tokens.</p>
+        </div>
+      </div>
+
+      <p class="muted" style="margin-top:22px;">→ Read the full rules: <code>PROJECT_RULES.md</code></p>
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <span>// CYBERJOURNEY · ARCHITECTURE SPEC v0.1</span>
+    <span>SR. ARCHITECT · 2026</span>
+    <span>STATUS · READY FOR REVIEW</span>
+  </footer>
+
+</div>
+</body>
+</html>
