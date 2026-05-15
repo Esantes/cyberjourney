@@ -3,6 +3,7 @@
    Tier-2 in the architecture. Knows nothing about trackers.
    ========================================================= */
 
+;(function () {
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
 /* ---------- cn helper (no clsx needed) ---------- */
@@ -414,3 +415,5 @@ Object.assign(window, {
   EmptyState, Markdown, renderMarkdown,
   PageHeader, SectionLabel,
 });
+
+})();
