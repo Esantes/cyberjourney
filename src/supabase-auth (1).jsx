@@ -28,15 +28,9 @@ async function sbAuthFetch(path, token, options = {}) {
 }
 
 /* ---------- Auth functions ---------- */
-async function signInWithGitHub() {
-  const redirectTo = `${location.origin}${location.pathname}`;
-  const { data } = await sbFetch("/auth/v1/authorize?provider=github&redirect_to=" + encodeURIComponent(redirectTo));
-  if (data?.url) {
-    location.href = data.url;
-  } else {
-    // fallback direto
-    location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=github&redirect_to=${encodeURIComponent(redirectTo)}`;
-  }
+function signInWithGitHub() {
+  const redirectTo = encodeURIComponent(`${location.origin}${location.pathname}`);
+  location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=github&redirect_to=${redirectTo}`;
 }
 
 async function signOut(token) {
