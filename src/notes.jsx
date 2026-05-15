@@ -1,4 +1,6 @@
-(function () {
+/* =========================================================
+   notes.jsx — markdown learning journal
+   ========================================================= */
 
 const NOTE_CATEGORIES = ["Linux", "Networking", "Web Security", "Cryptography", "Privilege Escalation"];
 
@@ -33,8 +35,9 @@ function NotesPage() {
     const d = draft;
     if (!d) return;
     if (d.id.startsWith("j-new-")) {
-      const { id: _id, ...rest } = d;
+      const { id: _noteId, ...rest } = d;
       actions.addJournal(rest);
+      // pick the newest after add
       setTimeout(() => { setActiveId(state.journal[0]?.id || null); setEditing(false); setDraft(null); }, 0);
     } else {
       actions.updateJournal(d.id, { title: d.title, body: d.body, tags: d.tags, category: d.category });
@@ -53,6 +56,7 @@ function NotesPage() {
     setActiveId(null);
   }
 
+  // Category counts
   const counts = useMemo(() => {
     const map = { All: state.journal.length };
     NOTE_CATEGORIES.forEach(c => map[c] = state.journal.filter(n => n.category === c).length);
@@ -71,10 +75,11 @@ function NotesPage() {
       />
 
       <div className="grid lg:grid-cols-[280px_1fr] gap-4">
+        {/* sidebar */}
         <aside className="space-y-3">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-mute)]"><Icon.Search /></span>
-            <input className="input" style={{ paddingLeft: 30 }} placeholder="Search notes..." value={search} onChange={e => setSearch(e.target.value)} />
+            <input className="input" style={{ paddingLeft: 30 }} placeholder="Search notes…" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <Card padded={false}>
             <div className="px-3 py-3 border-b border-[var(--line)]">
@@ -118,6 +123,7 @@ function NotesPage() {
           </Card>
         </aside>
 
+        {/* viewer */}
         <main>
           {!active && !editing ? (
             <Card><EmptyState title="No note selected." body="Pick one from the list, or start a new one." action={<Button tone="primary" size="sm" onClick={startNew}><Icon.Plus /> New note</Button>} /></Card>
@@ -127,7 +133,7 @@ function NotesPage() {
             <Card>
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div className="min-w-0">
-                  <div className="font-mono text-[10.5px] tracking-widest text-[var(--ink-mute)] mb-1.5">// {active.category.toUpperCase()} - {active.updatedAt}</div>
+                  <div className="font-mono text-[10.5px] tracking-widest text-[var(--ink-mute)] mb-1.5">// {active.category.toUpperCase()} · {active.updatedAt}</div>
                   <h2 className="text-[24px] font-semibold tracking-tight">{active.title}</h2>
                   {active.tags?.length ? (
                     <div className="flex gap-1.5 mt-2 flex-wrap">
@@ -174,12 +180,12 @@ function NoteEditor({ draft, setDraft, onSave, onCancel }) {
             <Tag key={t}>
               <span>{t}</span>
               <button onClick={() => setDraft({ ...draft, tags: draft.tags.filter(x => x !== t) })}
-                className="ml-1.5 text-[var(--ink-mute)] hover:text-[var(--mag)]" aria-label="Remove tag">x</button>
+                className="ml-1.5 text-[var(--ink-mute)] hover:text-[var(--mag)]" aria-label="Remove tag">×</button>
             </Tag>
           ))}
           <div className="flex">
             <input className="input" style={{ height: 26, paddingLeft: 8, paddingRight: 8, width: 120, fontSize: 12 }}
-              placeholder="add tag..." value={tagInput}
+              placeholder="add tag…" value={tagInput}
               onChange={e => setTagInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }} />
           </div>
@@ -187,17 +193,17 @@ function NoteEditor({ draft, setDraft, onSave, onCancel }) {
 
         <div className="grid lg:grid-cols-2 gap-3">
           <div>
-            <div className="eyebrow mb-1.5">// EDITOR - MARKDOWN</div>
+            <div className="eyebrow mb-1.5">// EDITOR · MARKDOWN</div>
             <textarea className="textarea font-mono text-[13px]" rows={20}
               value={draft.body}
               onChange={e => setDraft({ ...draft, body: e.target.value })}
-              placeholder="# heading"
+              placeholder="# heading&#10;&#10;`inline code`&#10;&#10;```bash&#10;ssh -i key user@host&#10;```"
             />
           </div>
           <div>
             <div className="eyebrow mb-1.5">// PREVIEW</div>
             <div className="rounded-md border border-[var(--line)] bg-[rgba(255,255,255,0.012)] p-4 min-h-[480px]">
-              <Markdown source={draft.body || "_Start typing..._"} />
+              <Markdown source={draft.body || "_Start typing…_"} />
             </div>
           </div>
         </div>
@@ -216,5 +222,3 @@ function stripMd(s) {
 }
 
 Object.assign(window, { NotesPage, NOTE_CATEGORIES, stripMd });
-
-})();
