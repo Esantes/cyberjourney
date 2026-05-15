@@ -128,8 +128,8 @@ function Sidebar({ route, onNavigate }) {
         {/* user mini-card */}
         <div className="m-3 mb-1 p-3 rounded-md border border-[var(--line)] bg-[rgba(255,255,255,0.012)]">
           <div className="flex items-center gap-3">
-            {auth.isLoggedIn && auth.ghUser?.avatar_url ? (
-              <img src={auth.ghUser.avatar_url} className="w-9 h-9 rounded-md border border-[var(--phos-line)]" alt="" />
+            {auth.isLoggedIn && auth.sbUser?.avatar_url ? (
+              <img src={auth.sbUser?.user_metadata?.avatar_url} className="w-9 h-9 rounded-md border border-[var(--phos-line)]" alt="" />
             ) : (
               <div className="w-9 h-9 rounded-md border border-[var(--phos-line)] bg-[var(--phos-soft)] text-[var(--phos)] grid place-items-center font-mono text-[12px] font-semibold">
                 {state.user.avatar}
@@ -188,7 +188,7 @@ function Sidebar({ route, onNavigate }) {
         {/* GitHub auth + footer */}
         <div className="p-3 border-t border-[var(--line)] space-y-2">
           <GitHubAuthButton
-            ghUser={auth.ghUser}
+            sbUser={auth.sbUser}
             syncing={auth.syncing}
             syncStatus={auth.syncStatus}
             onLogin={auth.login}
@@ -255,7 +255,7 @@ function MobileDrawer({ open, route, onClose }) {
         </nav>
         <div className="p-3 border-t border-[var(--line)]">
           <GitHubAuthButton
-            ghUser={auth.ghUser}
+            sbUser={auth.sbUser}
             syncing={auth.syncing}
             syncStatus={auth.syncStatus}
             onLogin={auth.login}

@@ -242,7 +242,7 @@ function StoreProvider({ children }) {
   React.useEffect(() => { storageAdapter.save(state); }, [state]);
 
   // Sync com GitHub Gist (se logado)
-  const auth = useGitHubAuth();
+  const auth = useSupabaseAuth();
   const syncTimer = React.useRef(null);
 
   // Carrega do Gist na primeira vez que o usuário loga
